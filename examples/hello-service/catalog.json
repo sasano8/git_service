@@ -2,5 +2,5 @@
   "name": "hello-service",
   "description": "git_service の公開契約を示す疑似リポジトリ",
   "interfaces": ["get_openapi", "get_catalog"],
-  "actions": ["up", "status", "down"]
+  "actions": ["up", "status", "down", "run"]
 }

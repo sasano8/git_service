@@ -1,6 +1,8 @@
 # git_service 公開契約の仕様案。実装済みの設定形式ではありません。
 version: 1
 name: hello-service
+definitions:
+  env_flags: &env_flags ["-e", "{name}={value}"]
 queries:
   get_openapi:
     description: Hello API の OpenAPI スキーマ
@@ -10,26 +12,51 @@ queries:
     description: サービスのカタログ
     file: catalog.json
     content_type: application/json
-inputs:
-  HTTP_PORT:
-    type: integer
-    required: true
-    description: ホスト側の公開ポート。管理ツール側から渡す。
 actions:
   up:
     executor: compose
     file: compose.yaml
     arguments: [up, --detach]
-    inputs: [HTTP_PORT]
+    inputs:
+      HTTP_PORT:
+        type: integer
+        required: true
+        description: ホスト側の公開ポート
+    process_env:
+      HTTP_PORT:
+        input: HTTP_PORT
   status:
     executor: compose
     file: compose.yaml
     arguments: [ps]
-    inputs: [HTTP_PORT]
+    # 起動時に保存したインスタンス設定を使う。
+    process_env:
+      HTTP_PORT:
+        instance_input: HTTP_PORT
   down:
     executor: compose
     file: compose.yaml
     arguments: [down]
-    inputs: [HTTP_PORT]
+    process_env:
+      HTTP_PORT:
+        instance_input: HTTP_PORT
+  run:
+    executor: compose
+    file: compose.yaml
+    inputs:
+      APP_MODE:
+        type: string
+        required: true
+        description: 実行するコンテナに渡すモード
+    process_env:
+      HTTP_PORT:
+        instance_input: HTTP_PORT
+    arguments:
+      - run
+      - --detach
+      - expand:
+          inputs: [APP_MODE]
+          format: *env_flags
+      - web
 # compose executor は Docker 実行先を必要とします。
-# 将来の Alpine shell executor とは別の実行方式です。
+# run は一時コンテナを作る操作。停止には別途 docker rm -f <container-id> を使います。
