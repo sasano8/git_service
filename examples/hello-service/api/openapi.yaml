@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: Hello Service
+  version: 1.0.0
+paths:
+  /:
+    get:
+      operationId: getHello
+      responses:
+        '200':
+          description: 挨拶を返す
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Hello from git_service

@@ -1,0 +1,35 @@
+# git_service 公開契約の仕様案。実装済みの設定形式ではありません。
+version: 1
+name: hello-service
+queries:
+  get_openapi:
+    description: Hello API の OpenAPI スキーマ
+    file: api/openapi.yaml
+    content_type: application/yaml
+  get_catalog:
+    description: サービスのカタログ
+    file: catalog.json
+    content_type: application/json
+inputs:
+  HTTP_PORT:
+    type: integer
+    required: true
+    description: ホスト側の公開ポート。管理ツール側から渡す。
+actions:
+  up:
+    executor: compose
+    file: compose.yaml
+    arguments: [up, --detach]
+    inputs: [HTTP_PORT]
+  status:
+    executor: compose
+    file: compose.yaml
+    arguments: [ps]
+    inputs: [HTTP_PORT]
+  down:
+    executor: compose
+    file: compose.yaml
+    arguments: [down]
+    inputs: [HTTP_PORT]
+# compose executor は Docker 実行先を必要とします。
+# 将来の Alpine shell executor とは別の実行方式です。

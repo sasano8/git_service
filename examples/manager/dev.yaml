@@ -1,0 +1,16 @@
+# 管理ツール側の設定の仕様案。対象リポジトリの外で保持します。
+version: 1
+environments:
+  dev:
+    instances:
+      hello-dev:
+        repository: ../hello-service
+        inputs:
+          HTTP_PORT: 18080
+      hello-dev-2:
+        repository: ../hello-service
+        inputs:
+          HTTP_PORT: 18081
+# repository はこの設定ファイルからの相対パス。
+# インスタンスごとに Compose project name を分ける想定です。
+# この例はポートを手動割り当てしています。自動割り当ては将来の対象です。

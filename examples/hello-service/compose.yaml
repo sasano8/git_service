@@ -1,0 +1,8 @@
+services:
+  web:
+    image: busybox:1.37.0
+    command: [httpd, -f, -p, '8080', -h, /www]
+    volumes:
+      - ./public:/www:ro
+    ports:
+      - '${HTTP_PORT:?HTTP_PORT must be supplied by the manager}:8080'
