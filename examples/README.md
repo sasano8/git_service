@@ -141,6 +141,43 @@ HTTP_PORT=18081 docker compose -p hello-dev-2 \
 
 この直接実行例は `manager/dev.yaml` を読みません。管理設定の解決・入力検証・操作の振り分けを git_service が担う、という境界を示しています。
 
+## Makefile へのエクスポート（仕様案）
+
+CLI は未実装です。エクスポートは、ローカルリポジトリを対象に git_service を呼び出す Make ターゲットを生成する想定です。git_service のインストールは引き続き必要です。
+
+```bash
+# 対象リポジトリのルートで実行する。
+cd examples/hello-service
+
+git_service export makefile --repo . --output Makefile.git_service
+
+# 必要な入力は CLI の --input に渡す想定。
+make -f Makefile.git_service up \
+  GIT_SERVICE_ARGS='--input HTTP_PORT=18080 --input COMPOSE_PROJECT_NAME=hello-dev'
+```
+
+生成内容の例です。各レシピの先頭はタブです。
+
+```makefile
+GIT_SERVICE_ARGS ?=
+
+.PHONY: up status down run
+
+up:
+	git_service action up --repo . $(GIT_SERVICE_ARGS)
+
+status:
+	git_service action status --repo . $(GIT_SERVICE_ARGS)
+
+down:
+	git_service action down --repo . $(GIT_SERVICE_ARGS)
+
+run:
+	git_service action run --repo . $(GIT_SERVICE_ARGS)
+```
+
+`--repo .` は実行時の作業ディレクトリを指します。この例はリポジトリルートから利用します。既存の Makefile とは別ファイルへ出力し、公開操作をターゲットに変換します。クエリのエクスポートはこの例の対象外です。`GIT_SERVICE_ARGS` は利用者が指定するコマンドライン引数用で、任意の入力値を自動エスケープする仕組みではありません。
+
 ## pipe のフィルター
 
 - `items($inputs)`：辞書をキー `k` と値 `v` の組の列にする。
