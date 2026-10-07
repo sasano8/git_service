@@ -2,7 +2,17 @@
 version: 1
 name: hello-service
 definitions:
+  env_values: &env_values ["{name}={value}"]
   env_flags: &env_flags ["-e", "{name}={value}"]
+  compose_inputs: &compose_inputs
+    HTTP_PORT:
+      type: integer
+      required: true
+      description: ホスト側の公開ポート
+    COMPOSE_PROJECT_NAME:
+      type: string
+      required: true
+      description: インスタンスを区別する Compose project name
 queries:
   get_openapi:
     description: Hello API の OpenAPI スキーマ
@@ -14,49 +24,71 @@ queries:
     content_type: application/json
 actions:
   up:
-    executor: compose
-    file: compose.yaml
-    arguments: [up, --detach]
+    executor: shell
+    command: env
     inputs:
-      HTTP_PORT:
-        type: integer
-        required: true
-        description: ホスト側の公開ポート
-    process_env:
-      HTTP_PORT:
-        input: HTTP_PORT
+      <<: *compose_inputs
+    arguments:
+      - expand:
+          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
+          format: *env_values
+      - docker
+      - compose
+      - -f
+      - compose.yaml
+      - up
+      - --detach
   status:
-    executor: compose
-    file: compose.yaml
-    arguments: [ps]
-    # 起動時に保存したインスタンス設定を使う。
-    process_env:
-      HTTP_PORT:
-        instance_input: HTTP_PORT
-  down:
-    executor: compose
-    file: compose.yaml
-    arguments: [down]
-    process_env:
-      HTTP_PORT:
-        instance_input: HTTP_PORT
-  run:
-    executor: compose
-    file: compose.yaml
+    executor: shell
+    command: env
     inputs:
+      <<: *compose_inputs
+    arguments:
+      - expand:
+          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
+          format: *env_values
+      - docker
+      - compose
+      - -f
+      - compose.yaml
+      - ps
+  down:
+    executor: shell
+    command: env
+    inputs:
+      <<: *compose_inputs
+    arguments:
+      - expand:
+          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
+          format: *env_values
+      - docker
+      - compose
+      - -f
+      - compose.yaml
+      - down
+  run:
+    executor: shell
+    command: env
+    inputs:
+      <<: *compose_inputs
       APP_MODE:
         type: string
         required: true
-        description: 実行するコンテナに渡すモード
-    process_env:
-      HTTP_PORT:
-        instance_input: HTTP_PORT
+        description: コンテナに渡すモード
     arguments:
+      - expand:
+          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
+          format: *env_values
+      - docker
+      - compose
+      - -f
+      - compose.yaml
       - run
       - --detach
       - expand:
           inputs: [APP_MODE]
           format: *env_flags
       - web
-# compose executor は Docker 実行先を必要とします。
-# run は一時コンテナを作る操作。停止には別途 docker rm -f <container-id> を使います。
+# shell executor は command と展開済み arguments を引数配列として実行します。
+# 作業ディレクトリは対象リポジトリのルート。シェル文字列として評価しません。
+# この操作には Docker CLI と実行先 Docker が必要です。

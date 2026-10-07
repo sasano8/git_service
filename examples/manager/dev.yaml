@@ -7,10 +7,12 @@ environments:
         repository: ../hello-service
         inputs:
           HTTP_PORT: 18080
+          COMPOSE_PROJECT_NAME: hello-dev
       hello-dev-2:
         repository: ../hello-service
         inputs:
           HTTP_PORT: 18081
+          COMPOSE_PROJECT_NAME: hello-dev-2
 # repository はこの設定ファイルからの相対パス。
 # インスタンスごとに Compose project name を分ける想定です。
 # この例はポートを手動割り当てしています。自動割り当ては将来の対象です。
