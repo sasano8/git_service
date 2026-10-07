@@ -65,49 +65,38 @@ git_service down --config ./examples/manager/dev.yaml \
   --environment dev --instance hello-dev-2
 ```
 
-管理ツールは設定値を操作の入力に渡し、宣言された引数展開によって Compose の環境変数へ変換します。インスタンスごとの project name も設定で明示します。ポートはこの例では明示的に割り当てています。自動的な衝突検出・割り当ては将来の機能です。
+管理ツールは設定値を操作の入力に渡し、宣言された pipeによって Compose の環境変数へ変換します。インスタンスごとの project name も設定で明示します。ポートはこの例では明示的に割り当てています。自動的な衝突検出・割り当ては将来の機能です。
 
 ## 入力の受け渡し（仕様案）
 
-`executor: shell` は `command` と `arguments` を実行します。Docker Compose 専用の executor は設けません。作業ディレクトリは対象リポジトリのルートです。引数は配列として保持し、シェル文字列として評価しません。
-
 ```yaml
 definitions:
-  env_values: &env_values ["{name}={value}"]
-  env_flags: &env_flags ["-e", "{name}={value}"]
+  env_values: &env_values
+    pipe:
+      - items($inputs)
+      - map("{k}={v}")
+      - quote()
+      - concat(" ")
 
 actions:
-  run:
+  up:
     executor: shell
-    command: env
-    arguments:
-      - expand:
-          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
-          format: *env_values
-      - docker
-      - compose
-      - -f
-      - compose.yaml
-      - run
-      - --detach
-      - expand:
-          inputs: [APP_MODE]
-          format: *env_flags
-      - web
+    command:
+      - env
+      - *env_values
+      - docker compose -f compose.yaml up --detach
 ```
 
-入力定義はこの抜粋では省略しています。完全な例は `hello-service/git-service.yaml` にあります。操作ごとに `inputs` を定義し、管理設定の値を操作入力として渡します。`status`・`down` も同じ管理設定から入力を受け取り、暗黙の保存済み入力参照は使いません。
+入力定義は省略しています。完全な例は `hello-service/git-service.yaml` を参照してください。`$inputs` はその操作の入力です。管理設定から値を渡し、必須項目を検証します。
 
-`definitions` は実行対象にしない共通定義領域です。`format` は YAML アンカーで共有し、展開対象の `inputs` は各操作で選びます。必須入力の欠落は実行前にエラーにし、整数は十進文字列に変換する想定です。各 format 要素は一つの引数になり、入力値中の空白などで分割しません。
-
-上の例は、リポジトリルートで次を実行することに相当します。
+`definitions` で pipe を共有します。`command` の各断片をスペースで連結して POSIX sh で実行する仕様案です。入力は `quote()` でクォート・エスケープします。作業ディレクトリはリポジトリルートです。
 
 ```bash
 env HTTP_PORT=18080 COMPOSE_PROJECT_NAME=hello-dev \
-  docker compose -f compose.yaml run --detach -e APP_MODE=dev web
+  docker compose -f compose.yaml up --detach
 ```
 
-`env` が Compose プロセスへ環境変数を渡し、Compose の `run -e` がコンテナへ環境変数を渡します。環境変数の渡し先は、引数の位置とコマンドが決めます。`up` では `-e` を使わず、`env` で渡された `HTTP_PORT` をポート補間に使います。
+`run` は `APP_MODE` も `env` で渡し、`docker compose run --detach -e APP_MODE web` でその値をコンテナへ引き継ぎます。公開ポートは既定では使いません。一時コンテナは返された ID を使って `docker rm -f <container-id>` で削除します。
 
 ```bash
 # 未実装 CLI の設計例。
@@ -115,7 +104,7 @@ git_service action run --config ./examples/manager/dev.yaml \
   --environment dev --instance hello-dev --input APP_MODE=dev
 ```
 
-`run` はサービスの公開ポートを既定では使いません。一時コンテナの削除は、返された ID を使って `docker rm -f <container-id>` で行います。このサンプルの実行先には Docker CLI と Docker 実行環境が必要です。既定候補の Alpine だけで Docker が利用できるという意味ではありません。
+このサンプルの実行先には Docker CLI と Docker 実行環境が必要です。
 
 ## 現在実行できる同等の操作
 
@@ -145,3 +134,10 @@ HTTP_PORT=18081 docker compose -p hello-dev-2 \
 ```
 
 この直接実行例は `manager/dev.yaml` を読みません。管理設定の解決・入力検証・操作の振り分けを git_service が担う、という境界を示しています。
+
+## pipe のフィルター
+
+- `items($inputs)`：辞書をキー `k` と値 `v` の組の列にする。
+- `map("{k}={v}")`：各要素をテンプレートで文字列にする。
+- `quote()`：各文字列をシェル向けにクォート・エスケープする。
+- `concat(" ")`：要素をスペースで結合し、最終文字列を返す。

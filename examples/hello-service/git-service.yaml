@@ -2,8 +2,12 @@
 version: 1
 name: hello-service
 definitions:
-  env_values: &env_values ["{name}={value}"]
-  env_flags: &env_flags ["-e", "{name}={value}"]
+  env_values: &env_values
+    pipe:
+      - items($inputs)
+      - map("{k}={v}")
+      - quote()
+      - concat(" ")
   compose_inputs: &compose_inputs
     HTTP_PORT:
       type: integer
@@ -25,70 +29,39 @@ queries:
 actions:
   up:
     executor: shell
-    command: env
     inputs:
       <<: *compose_inputs
-    arguments:
-      - expand:
-          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
-          format: *env_values
-      - docker
-      - compose
-      - -f
-      - compose.yaml
-      - up
-      - --detach
+    command:
+      - env
+      - *env_values
+      - docker compose -f compose.yaml up --detach
   status:
     executor: shell
-    command: env
     inputs:
       <<: *compose_inputs
-    arguments:
-      - expand:
-          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
-          format: *env_values
-      - docker
-      - compose
-      - -f
-      - compose.yaml
-      - ps
+    command:
+      - env
+      - *env_values
+      - docker compose -f compose.yaml ps
   down:
     executor: shell
-    command: env
     inputs:
       <<: *compose_inputs
-    arguments:
-      - expand:
-          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
-          format: *env_values
-      - docker
-      - compose
-      - -f
-      - compose.yaml
-      - down
+    command:
+      - env
+      - *env_values
+      - docker compose -f compose.yaml down
   run:
     executor: shell
-    command: env
     inputs:
       <<: *compose_inputs
       APP_MODE:
         type: string
         required: true
         description: コンテナに渡すモード
-    arguments:
-      - expand:
-          inputs: [HTTP_PORT, COMPOSE_PROJECT_NAME]
-          format: *env_values
-      - docker
-      - compose
-      - -f
-      - compose.yaml
-      - run
-      - --detach
-      - expand:
-          inputs: [APP_MODE]
-          format: *env_flags
-      - web
-# shell executor は command と展開済み arguments を引数配列として実行します。
-# 作業ディレクトリは対象リポジトリのルート。シェル文字列として評価しません。
-# この操作には Docker CLI と実行先 Docker が必要です。
+    command:
+      - env
+      - *env_values
+      - docker compose -f compose.yaml run --detach -e APP_MODE web
+# command の各断片をスペースで連結し、POSIX sh で実行する仕様案です。
+# 作業ディレクトリはリポジトリルート。Docker CLI と Docker 実行先が必要です。
