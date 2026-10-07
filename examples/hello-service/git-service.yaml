@@ -2,11 +2,18 @@
 version: 1
 name: hello-service
 definitions:
+  process_values: &process_values
+    pipe:
+      - items($inputs)
+      - map("{k}={v}")
+      - quote()
+      - concat(" ")
   env_values: &env_values
     pipe:
       - items($inputs)
       - map("{k}={v}")
       - quote()
+      - map("-e {v}")
       - concat(" ")
   compose_inputs: &compose_inputs
     HTTP_PORT:
@@ -32,24 +39,21 @@ actions:
     inputs:
       <<: *compose_inputs
     command:
-      - env
-      - *env_values
+      - *process_values
       - docker compose -f compose.yaml up --detach
   status:
     executor: shell
     inputs:
       <<: *compose_inputs
     command:
-      - env
-      - *env_values
+      - *process_values
       - docker compose -f compose.yaml ps
   down:
     executor: shell
     inputs:
       <<: *compose_inputs
     command:
-      - env
-      - *env_values
+      - *process_values
       - docker compose -f compose.yaml down
   run:
     executor: shell
@@ -60,8 +64,9 @@ actions:
         required: true
         description: コンテナに渡すモード
     command:
-      - env
+      - *process_values
+      - docker compose -f compose.yaml run --detach
       - *env_values
-      - docker compose -f compose.yaml run --detach -e APP_MODE web
+      - web
 # command の各断片をスペースで連結し、POSIX sh で実行する仕様案です。
 # 作業ディレクトリはリポジトリルート。Docker CLI と Docker 実行先が必要です。

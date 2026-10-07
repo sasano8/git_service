@@ -76,27 +76,33 @@ definitions:
       - items($inputs)
       - map("{k}={v}")
       - quote()
+      - map("-e {v}")
       - concat(" ")
 
 actions:
-  up:
+  run:
     executor: shell
     command:
-      - env
+      - docker compose -f compose.yaml run --detach
       - *env_values
-      - docker compose -f compose.yaml up --detach
+      - web
 ```
 
 入力定義は省略しています。完全な例は `hello-service/git-service.yaml` を参照してください。`$inputs` はその操作の入力です。管理設定から値を渡し、必須項目を検証します。
 
 `definitions` で pipe を共有します。`command` の各断片をスペースで連結して POSIX sh で実行する仕様案です。入力は `quote()` でクォート・エスケープします。作業ディレクトリはリポジトリルートです。
 
+`APP_MODE=dev` は `-e APP_MODE=dev` に展開され、コンテナへ直接渡されます。`quote()` の後の `map` は、引用済み文字列を `{v}` として受け取り、固定の `-e ` を付けます。
+
+完全な設定例では Compose の補間用に `process_values` も定義し、コマンドの先頭に環境変数代入を置いています。`env` コマンドは使いません。`env_values` は全操作入力を `-e` 引数へ変換します。
+
 ```bash
-env HTTP_PORT=18080 COMPOSE_PROJECT_NAME=hello-dev \
-  docker compose -f compose.yaml up --detach
+HTTP_PORT=18080 COMPOSE_PROJECT_NAME=hello-dev APP_MODE=dev \
+  docker compose -f compose.yaml run --detach \
+  -e HTTP_PORT=18080 -e COMPOSE_PROJECT_NAME=hello-dev -e APP_MODE=dev web
 ```
 
-`run` は `APP_MODE` も `env` で渡し、`docker compose run --detach -e APP_MODE web` でその値をコンテナへ引き継ぎます。公開ポートは既定では使いません。一時コンテナは返された ID を使って `docker rm -f <container-id>` で削除します。
+公開ポートは既定では使いません。一時コンテナは返された ID を使って `docker rm -f <container-id>` で削除します。
 
 ```bash
 # 未実装 CLI の設計例。
